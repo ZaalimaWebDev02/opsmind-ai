@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.npm
+
+# Environment files - NEVER commit these
+.env
+.env.local
+.env.production
+backend/.env
+frontend/.env
+
+# Uploads folder (PDFs are not committed)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Build output
+frontend/dist/
+frontend/build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*
