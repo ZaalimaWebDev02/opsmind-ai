@@ -18,7 +18,7 @@ router.get('/health', (req, res) => {
 // GET /api/admin/documents
 router.get('/documents', auth, async (req, res) => {
   //console.log('🔥 HIT /api/admin/documents');
-  const docs = await Document.find({}, 'originalName uploadedAt totalChunks status');
+  const docs = await Document.find({});
   res.json(docs);
 });
 
