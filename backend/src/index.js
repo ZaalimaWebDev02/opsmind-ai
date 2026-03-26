@@ -5,7 +5,7 @@ const cors    = require('cors');
 
 const connectDB    = require('./config/db');
 const uploadRoutes = require('./routes/upload');
-// const adminRoutes  = require('./routes/admin');
+const adminRoutes  = require('./routes/admin');
 const chatRoutes   = require('./routes/chat');
 
 const app  = express();
@@ -22,7 +22,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/upload', uploadRoutes);
-// app.use('/api/admin',  adminRoutes);
+app.use('/api/admin',  adminRoutes);
 app.use('/api/chat',   chatRoutes);
 
 app.get('/health', (req, res) => {
