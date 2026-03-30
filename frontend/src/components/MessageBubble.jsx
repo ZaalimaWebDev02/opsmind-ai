@@ -1,149 +1,87 @@
+import { useState } from 'react';
 import SourceCitation from './SourceCitation.jsx';
 
-/**
- * MessageBubble — renders a single chat message.
- * Handles user messages, streaming assistant messages, and error states.
- */
 export default function MessageBubble({ message }) {
-  const isUser = message.role === 'user';
+  const isUser  = message.role === 'user';
+  const [copied, setCopied] = useState(false);
+
+  const copyText = async () => {
+    await navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
-    <div style={{
-      ...styles.wrapper,
-      justifyContent: isUser ? 'flex-end' : 'flex-start',
-      animation: 'fadeIn 0.2s ease',
-    }}>
-      {/* Avatar */}
-      {!isUser && (
-        <div style={styles.avatar}>
-          🧠
-        </div>
-      )}
+    <div style={{ ...styles.wrapper, justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
 
-      <div style={{ maxWidth: '75%' }}>
-        {/* Bubble */}
+      {!isUser && <div style={styles.avatar}>🧠</div>}
+
+      <div style={{ maxWidth: '78%' }}>
         <div style={{
           ...styles.bubble,
           ...(isUser ? styles.userBubble : styles.assistantBubble),
           ...(message.error ? styles.errorBubble : {}),
         }}>
-          {/* Streaming cursor */}
+          {/* Typing dots while empty and streaming */}
           {message.streaming && !message.content ? (
-            <div style={styles.typingDots}>
-              <span style={styles.dot} />
-              <span style={{ ...styles.dot, animationDelay: '0.2s' }} />
-              <span style={{ ...styles.dot, animationDelay: '0.4s' }} />
+            <div style={styles.dots}>
+              {[0, 0.2, 0.4].map((d, i) => (
+                <span key={i} style={{ ...styles.dot, animationDelay: `${d}s` }} />
+              ))}
             </div>
           ) : (
             <p style={styles.text}>
               {message.content}
-              {message.streaming && (
-                <span style={styles.cursor}>▊</span>
-              )}
+              {message.streaming && <span style={styles.cursor}>▊</span>}
             </p>
           )}
         </div>
 
-        {/* Sources — only on assistant messages */}
+        {/* Sources */}
         {!isUser && !message.streaming && message.sources?.length > 0 && (
           <SourceCitation sources={message.sources} />
         )}
 
-        {/* Timestamp */}
-        <p style={{
-          ...styles.timestamp,
-          textAlign: isUser ? 'right' : 'left',
-        }}>
-          {formatTime(message.timestamp)}
-        </p>
+        {/* Footer row: timestamp + latency + copy */}
+        <div style={{ ...styles.footer, justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+          <span style={styles.timestamp}>{formatTime(message.timestamp)}</span>
+
+          {!isUser && message.latencyMs && (
+            <span style={styles.latency}>⚡ {(message.latencyMs / 1000).toFixed(1)}s</span>
+          )}
+
+          {!isUser && !message.streaming && message.content && (
+            <button onClick={copyText} style={styles.copyBtn}>
+              {copied ? '✅ Copied' : '📋 Copy'}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* User avatar */}
-      {isUser && (
-        <div style={{ ...styles.avatar, ...styles.userAvatar }}>
-          👤
-        </div>
-      )}
+      {isUser && <div style={{ ...styles.avatar, ...styles.userAvatar }}>👤</div>}
     </div>
   );
 }
 
-const formatTime = (date) => {
-  if (!date) return '';
-  return new Date(date).toLocaleTimeString([], {
-    hour:   '2-digit',
-    minute: '2-digit',
-  });
+const formatTime = (ts) => {
+  if (!ts) return '';
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
 const styles = {
-  wrapper: {
-    display:    'flex',
-    alignItems: 'flex-start',
-    gap:        '10px',
-    marginBottom:'16px',
-  },
-  avatar: {
-    width:          '34px',
-    height:         '34px',
-    borderRadius:   '50%',
-    background:     '#21253a',
-    border:         '1px solid #2d3452',
-    display:        'flex',
-    alignItems:     'center',
-    justifyContent: 'center',
-    fontSize:       '16px',
-    flexShrink:     0,
-  },
-  userAvatar: {
-    background: '#312e81',
-    border:     '1px solid #4f46e5',
-  },
-  bubble: {
-    borderRadius: '12px',
-    padding:      '10px 14px',
-    wordBreak:    'break-word',
-  },
-  userBubble: {
-    background:        '#312e81',
-    border:            '1px solid #4f46e5',
-    borderTopRightRadius: '4px',
-  },
-  assistantBubble: {
-    background:       '#21253a',
-    border:           '1px solid #2d3452',
-    borderTopLeftRadius:'4px',
-  },
-  errorBubble: {
-    background: '#2d1515',
-    border:     '1px solid #ef4444',
-  },
-  text: {
-    fontSize:   '14px',
-    lineHeight: '1.6',
-    color:      '#f1f5f9',
-    whiteSpace: 'pre-wrap',
-  },
-  cursor: {
-    display:   'inline-block',
-    color:     '#6366f1',
-    animation: 'pulse 1s ease infinite',
-  },
-  typingDots: {
-    display: 'flex',
-    gap:     '4px',
-    padding: '4px 0',
-  },
-  dot: {
-    width:        '8px',
-    height:       '8px',
-    borderRadius: '50%',
-    background:   '#6366f1',
-    animation:    'pulse 1.2s ease infinite',
-  },
-  timestamp: {
-    fontSize:   '11px',
-    color:      '#475569',
-    marginTop:  '4px',
-  },
+  wrapper:       { display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '20px' },
+  avatar:        { width: '34px', height: '34px', borderRadius: '50%', background: '#1e2235', border: '1px solid #2d3452', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0, marginTop: '2px' },
+  userAvatar:    { background: '#1e1b4b', border: '1px solid #4338ca' },
+  bubble:        { borderRadius: '14px', padding: '10px 14px', wordBreak: 'break-word' },
+  userBubble:    { background: '#1e1b4b', border: '1px solid #4338ca', borderTopRightRadius: '4px' },
+  assistantBubble: { background: '#1a1d2e', border: '1px solid #252a3d', borderTopLeftRadius: '4px' },
+  errorBubble:   { background: '#1a0a0a', border: '1px solid #7f1d1d' },
+  text:          { fontSize: '14px', lineHeight: '1.65', color: '#e2e8f0', whiteSpace: 'pre-wrap', margin: 0 },
+  cursor:        { display: 'inline-block', color: '#818cf8', animation: 'pulse 1s ease infinite' },
+  dots:          { display: 'flex', gap: '4px', padding: '6px 2px', alignItems: 'center' },
+  dot:           { width: '7px', height: '7px', borderRadius: '50%', background: '#6366f1', animation: 'pulse 1.2s ease infinite' },
+  footer:        { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '5px', flexWrap: 'wrap' },
+  timestamp:     { fontSize: '11px', color: '#334155' },
+  latency:       { fontSize: '11px', color: '#4ade80', background: '#052e16', borderRadius: '4px', padding: '1px 6px' },
+  copyBtn:       { fontSize: '11px', color: '#64748b', background: 'transparent', border: '1px solid #1e293b', borderRadius: '4px', padding: '1px 7px', cursor: 'pointer' },
 };
