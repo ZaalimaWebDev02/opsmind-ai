@@ -1,8 +1,7 @@
 require('dotenv').config();
 
-const express = require('express');
-const cors    = require('cors');
-
+const express      = require('express');
+const cors         = require('cors');
 const connectDB    = require('./config/db');
 const uploadRoutes = require('./routes/upload');
 const adminRoutes  = require('./routes/admin');
@@ -12,6 +11,18 @@ const app  = express();
 const PORT = process.env.PORT || 5000;
 
 connectDB();
+
+// ── Request timing middleware ────────────────────────────────────────────────
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    if (ms > 2000) {
+      console.log(`⚠️  Slow request: ${req.method} ${req.path} — ${ms}ms`);
+    }
+  });
+  next();
+});
 
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000'],
@@ -25,17 +36,25 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/admin',  adminRoutes);
 app.use('/api/chat',   chatRoutes);
 
-app.get('/health', (req, res) => {
+// ── Health check with full system status ─────────────────────────────────────
+app.get('/health', async (req, res) => {
+  const mongoose = require('mongoose');
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+
   res.json({
-    status:  'ok',
-    version: '0.2.0',
-    week:    'Week 2 - Retrieval Engine + Chat API',
-    time:    new Date().toISOString(),
+    status:    'ok',
+    version:   '1.0.0',
+    week:      'Week 4 - Production Ready',
+    db:        dbStatus,
+    uptime:    Math.floor(process.uptime()) + 's',
+    memory:    Math.floor(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+    time:      new Date().toISOString(),
   });
 });
 
+// ── Global error handler ──────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err.message);
+  console.error('❌ Unhandled error:', err.message);
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({ error: 'File too large. Maximum 50MB.' });
   }
@@ -46,8 +65,8 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log('\n🧠 OpsMind AI Backend');
+  console.log('\n🧠 OpsMind AI — v1.0.0');
   console.log(`   Running on : http://localhost:${PORT}`);
   console.log(`   Health     : http://localhost:${PORT}/health`);
-  console.log(`   Week       : 2 - Retrieval Engine + Chat API\n`);
+  console.log(`   Week       : 4 - Production Ready\n`);
 });

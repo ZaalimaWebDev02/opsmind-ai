@@ -1,53 +1,78 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { streamChat } from '../services/api';
 
-/**
- * useChat — manages all chat state and streaming logic.
- *
- * Returns: { messages, sessionId, isLoading, error, sendMessage, clearChat }
- */
+const SESSION_KEY = 'opsmind_session_id';
+const HISTORY_KEY = 'opsmind_messages';
+
+const loadPersistedMessages = () => {
+  try {
+    const raw = sessionStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const persistMessages = (msgs) => {
+  try {
+    // Only persist last 50 messages to avoid storage limits
+    sessionStorage.setItem(HISTORY_KEY, JSON.stringify(msgs.slice(-50)));
+  } catch {}
+};
+
 export const useChat = () => {
-  const [messages,  setMessages]  = useState([]);
+  const [messages,  setMessages]  = useState(() => loadPersistedMessages());
   const [isLoading, setIsLoading] = useState(false);
   const [error,     setError]     = useState(null);
+  const [latency,   setLatency]   = useState(null);
 
-  // Persist session ID across renders (but reset on clearChat)
-  const sessionIdRef  = useRef(uuidv4());
+  const sessionIdRef  = useRef(
+    sessionStorage.getItem(SESSION_KEY) || uuidv4()
+  );
   const controllerRef = useRef(null);
+
+  // Persist session ID
+  useEffect(() => {
+    sessionStorage.setItem(SESSION_KEY, sessionIdRef.current);
+  }, []);
+
+  // Persist messages whenever they change
+  useEffect(() => {
+    persistMessages(messages);
+  }, [messages]);
 
   const sendMessage = useCallback((query) => {
     if (!query.trim() || isLoading) return;
 
     setError(null);
+    setLatency(null);
     setIsLoading(true);
 
-    // Add user message immediately
+    const startTime = Date.now();
+
     const userMsg = {
       id:        uuidv4(),
       role:      'user',
       content:   query,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
-    // Add empty assistant message for streaming into
     const assistantMsg = {
       id:        uuidv4(),
       role:      'assistant',
       content:   '',
       sources:   [],
       streaming: true,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
     setMessages(prev => [...prev, userMsg, assistantMsg]);
 
-    // Start SSE stream
     controllerRef.current = streamChat(
       query,
       sessionIdRef.current,
 
-      // onToken — append each token to last message
       (token) => {
         setMessages(prev => {
           const updated = [...prev];
@@ -58,7 +83,6 @@ export const useChat = () => {
         });
       },
 
-      // onSources — attach sources to last message
       (sources) => {
         setMessages(prev => {
           const updated = [...prev];
@@ -69,19 +93,20 @@ export const useChat = () => {
         });
       },
 
-      // onDone — mark streaming complete
-      () => {
+      (donePayload) => {
+        const ms = donePayload?.totalMs || (Date.now() - startTime);
+        setLatency(ms);
         setMessages(prev => {
           const updated = [...prev];
           const last    = { ...updated[updated.length - 1] };
           last.streaming = false;
+          last.latencyMs = ms;
           updated[updated.length - 1] = last;
           return updated;
         });
         setIsLoading(false);
       },
 
-      // onError
       (err) => {
         setError(err.message);
         setMessages(prev => {
@@ -103,7 +128,10 @@ export const useChat = () => {
     setMessages([]);
     setError(null);
     setIsLoading(false);
+    setLatency(null);
     sessionIdRef.current = uuidv4();
+    sessionStorage.setItem(SESSION_KEY, sessionIdRef.current);
+    sessionStorage.removeItem(HISTORY_KEY);
   }, []);
 
   const stopStreaming = useCallback(() => {
@@ -125,6 +153,7 @@ export const useChat = () => {
     sessionId:    sessionIdRef.current,
     isLoading,
     error,
+    latency,
     sendMessage,
     clearChat,
     stopStreaming,

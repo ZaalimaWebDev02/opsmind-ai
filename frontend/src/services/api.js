@@ -1,20 +1,8 @@
 const BASE_URL  = '/api';
 const ADMIN_KEY = 'supersecretadminkey123';
 
-// ── Chat API ──────────────────────────────────────────────────────────────────
+// ── Chat ──────────────────────────────────────────────────────────────────────
 
-/**
- * Streams chat response via SSE.
- * Returns an AbortController so caller can cancel the stream.
- *
- * @param {string}   query      - User's question
- * @param {string}   sessionId  - Session UUID
- * @param {Function} onToken    - Called with each streamed token string
- * @param {Function} onSources  - Called with sources array
- * @param {Function} onDone     - Called when stream completes
- * @param {Function} onError    - Called on error
- * @returns {AbortController}
- */
 export const streamChat = (query, sessionId, onToken, onSources, onDone, onError) => {
   const controller = new AbortController();
 
@@ -53,7 +41,7 @@ export const streamChat = (query, sessionId, onToken, onSources, onDone, onError
               const payload = JSON.parse(line.replace('data:', '').trim());
               if (currentEvent === 'token')   onToken(payload.token);
               if (currentEvent === 'sources') onSources(payload.sources || []);
-              if (currentEvent === 'done')    onDone(payload.sessionId);
+              if (currentEvent === 'done')    onDone(payload);
               if (currentEvent === 'error')   onError(new Error(payload.message));
             } catch (_) {}
             currentEvent = null;
@@ -68,19 +56,23 @@ export const streamChat = (query, sessionId, onToken, onSources, onDone, onError
   return controller;
 };
 
-/**
- * Fetches chat history for a session.
- */
 export const getChatHistory = async (sessionId) => {
   const res = await fetch(`${BASE_URL}/chat/history/${sessionId}`);
   return res.json();
 };
 
-// ── Admin API ─────────────────────────────────────────────────────────────────
+export const getChatSessions = async () => {
+  const res = await fetch(`${BASE_URL}/chat/sessions`);
+  return res.json();
+};
 
-/**
- * Fetches all indexed documents.
- */
+export const deleteChatSession = async (sessionId) => {
+  const res = await fetch(`${BASE_URL}/chat/sessions/${sessionId}`, { method: 'DELETE' });
+  return res.json();
+};
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
 export const getDocuments = async () => {
   const res = await fetch(`${BASE_URL}/admin/documents`, {
     headers: { 'x-admin-key': ADMIN_KEY },
@@ -88,9 +80,6 @@ export const getDocuments = async () => {
   return res.json();
 };
 
-/**
- * Uploads a PDF file and triggers the embedding pipeline.
- */
 export const uploadPDF = async (file, onProgress) => {
   const form = new FormData();
   form.append('pdf', file);
@@ -113,16 +102,12 @@ export const uploadPDF = async (file, onProgress) => {
     });
 
     xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
-
     xhr.open('POST', `${BASE_URL}/upload`);
     xhr.setRequestHeader('x-admin-key', ADMIN_KEY);
     xhr.send(form);
   });
 };
 
-/**
- * Checks the status of a document being processed.
- */
 export const getDocumentStatus = async (docId) => {
   const res = await fetch(`${BASE_URL}/upload/status/${docId}`, {
     headers: { 'x-admin-key': ADMIN_KEY },
@@ -130,9 +115,6 @@ export const getDocumentStatus = async (docId) => {
   return res.json();
 };
 
-/**
- * Deletes a document and its vectors.
- */
 export const deleteDocument = async (docId) => {
   const res = await fetch(`${BASE_URL}/admin/documents/${docId}`, {
     method:  'DELETE',
@@ -141,11 +123,21 @@ export const deleteDocument = async (docId) => {
   return res.json();
 };
 
-/**
- * Gets admin health stats.
- */
 export const getAdminHealth = async () => {
   const res = await fetch(`${BASE_URL}/admin/health`, {
+    headers: { 'x-admin-key': ADMIN_KEY },
+  });
+  return res.json();
+};
+
+export const getSystemHealth = async () => {
+  const res = await fetch(`/health`);
+  return res.json();
+};
+
+export const clearCache = async () => {
+  const res = await fetch(`${BASE_URL}/admin/cache/clear`, {
+    method:  'POST',
     headers: { 'x-admin-key': ADMIN_KEY },
   });
   return res.json();
