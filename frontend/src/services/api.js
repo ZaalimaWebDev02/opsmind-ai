@@ -1,6 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api';
+const BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
 const ADMIN_KEY = 'supersecretadminkey123';
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
@@ -133,7 +131,7 @@ export const getAdminHealth = async () => {
 };
 
 export const getSystemHealth = async () => {
-  const res = await fetch(`/health`);
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/health`);
   return res.json();
 };
 
